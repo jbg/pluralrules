@@ -1,11 +1,17 @@
 //! gen_rs is a Rust code generator for expression representations of CLDR plural rules.
-use super::plural_category::PluralCategory;
+
+use std::{
+    collections::BTreeMap,
+    fmt::Write,
+    str::{self, FromStr},
+};
+
 use phf_codegen::Map;
 use proc_macro2::{Ident, Literal, Span, TokenStream};
 use quote::quote;
-use std::collections::BTreeMap;
-use std::str;
-use std::str::FromStr;
+
+use super::plural_category::PluralCategory;
+
 
 /// Generates the complete TokenStream for the generated Rust code. This wraps the head and tail of the .rs file around the generated CLDR expressions.
 pub fn gen_fn(
@@ -59,14 +65,12 @@ fn gen_get_locales(locales: BTreeMap<String, Vec<String>>) -> TokenStream {
 // Function wraps all match statements for plural rules in a match for ordinal and cardinal rules
 fn create_gen_pr_type_fn(pr_type: &str, streams: Vec<(String, TokenStream)>) -> TokenStream {
     let mut map = Map::new();
-    for (lang, func) in streams {
-        map.entry(lang, &func.to_string());
+    for (lang, func) in streams.iter() {
+        map.entry(lang.as_str(), func.to_string().as_str());
     }
-    let mut map_bytes = Vec::<u8>::new();
-    map.build(&mut map_bytes)
-        .expect("unexpected failure building phf map");
-    let map = str::from_utf8(&map_bytes).expect("phf-codegen constructed non-utf8 code");
-    let map = TokenStream::from_str(map).expect("phf-codegen returned invalid Rust!");
+    let mut map_str = String::new();
+    write!(map_str, "{}", map.build()).expect("unexpected failure building phf map");
+    let map = TokenStream::from_str(&map_str).expect("phf-codegen returned invalid Rust!");
 
     let match_name = match pr_type {
         "cardinal" => quote! { PluralRuleType::CARDINAL },
